@@ -73,29 +73,36 @@
 	<build>
     <plugins>
 
-        <!-- Plugin de Spring Boot -->
-        <plugin>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-maven-plugin</artifactId>
-            <configuration>
-                <mainClass>com.example.proyecto_acueducto.ProyectoAcueductoApplication</mainClass>
-            </configuration>
-        </plugin>
+    <!-- Plugin de Spring Boot -->
+    <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <executions>
+            <execution>
+                <goals>
+                    <goal>repackage</goal>
+                </goals>
+            </execution>
+        </executions>
+        <configuration>
+            <mainClass>com.example.proyecto_acueducto.ProyectoAcueductoApplication</mainClass>
+        </configuration>
+    </plugin>
 
-        <!-- Plugin del compilador (para Lombok) -->
-        <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-compiler-plugin</artifactId>
-            <configuration>
-                <annotationProcessorPaths>
-                    <path>
-                        <groupId>org.projectlombok</groupId>
-                        <artifactId>lombok</artifactId>
-                    </path>
-                </annotationProcessorPaths>
-            </configuration>
-        </plugin>
+    <!-- Plugin del compilador -->
+    <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+            <annotationProcessorPaths>
+                <path>
+                    <groupId>org.projectlombok</groupId>
+                    <artifactId>lombok</artifactId>
+                </path>
+            </annotationProcessorPaths>
+        </configuration>
+    </plugin>
 
-    </plugins>
+</plugins>
 </build>
 </project>
