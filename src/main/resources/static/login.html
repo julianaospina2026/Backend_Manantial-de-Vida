@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Login - Prueba</title>
+</head>
+<body>
+  <h2>Iniciar sesión</h2>
+  <label>Identificación / Correo: <input id="ident"/></label><br/>
+  <label>Contraseña: <input id="pwd" type="password"/></label><br/>
+  <button id="btn">Ingresar</button>
+  <p id="msg"></p>
+
+  <script>
+    document.getElementById('btn').addEventListener('click', async ()=>{
+      const identificacion = document.getElementById('ident').value;
+      const password = document.getElementById('pwd').value;
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identificacion, password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          window.location.href = data.redirectUrl;
+        } else {
+          document.getElementById('msg').innerText = data.message || 'Error';
+        }
+      } catch (e) {
+        document.getElementById('msg').innerText = 'Error de conexión: ' + e;
+      }
+    });
+  </script>
+</body>
+</html>

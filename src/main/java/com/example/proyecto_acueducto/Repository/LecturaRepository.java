@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.domain.Pageable;
 @Repository
 public interface LecturaRepository extends JpaRepository<Lectura, Long> {
@@ -13,7 +14,7 @@ public interface LecturaRepository extends JpaRepository<Lectura, Long> {
     boolean existsByClienteIdAndPeriodo(Long clienteId, String periodo);
 
     // Obtener la última lectura de un cliente (para calcular consumo)
-    Optional<Lectura> findTopByCliente_IdOrderByFechaLecturaDesc(Long clienteId);
+    Optional<Lectura> findTopByClienteIdOrderByFechaLecturaDesc(Long clienteId);
 
     // Listar lecturas por cliente (con paginación)
     Page<Lectura> findByClienteId(Long clienteId, Pageable pageable);
@@ -23,4 +24,8 @@ public interface LecturaRepository extends JpaRepository<Lectura, Long> {
 
     // Listar por cliente y periodo (muy útil para filtros combinados)
     Page<Lectura> findByClienteIdAndPeriodo(Long clienteId, String periodo, Pageable pageable);
+
+    // Ejemplo de consulta para reportes: Suma de consumo por periodo
+    @Query("SELECT SUM(l.consumoM3) FROM Lectura l WHERE l.periodo = ?1")
+    java.math.BigDecimal sumarConsumoPorPeriodo(String periodo);
 }

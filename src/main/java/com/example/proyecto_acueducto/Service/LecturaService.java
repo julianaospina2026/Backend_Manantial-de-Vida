@@ -15,6 +15,8 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Optional;
 
+import jakarta.persistence.EntityNotFoundException;
+
 @Service
 public class LecturaService {
 
@@ -22,6 +24,7 @@ public class LecturaService {
     private final ClienteRepository clienteRepository;
 
     private static final BigDecimal CONSUMO_ALTO = new BigDecimal("80");
+    private static final BigDecimal PRECIO_M3 = new BigDecimal("2500"); // Precio por defecto
 
     public LecturaService(LecturaRepository lecturaRepository,
         ClienteRepository clienteRepository) {
@@ -29,77 +32,112 @@ public class LecturaService {
         this.clienteRepository = clienteRepository;
     }
 
-    // ✅ GUARDAR LECTURA
+    // ======================================
+    // GUARDAR LECTURA
+    // ======================================
     @Transactional
     public Lectura guardar(Lectura lectura) {
-            
-            if (lectura.getCliente() == null || lectura.getCliente().getId() == null) {
-                throw new RuntimeException("Debe enviar el id del cliente");
-            }
-            
-            if (lectura.getLecturaActual() == null) {
-                throw new RuntimeException("Debe enviar la lectura actual");
-            }
-            
-            if (lectura.getPeriodo() == null || lectura.getPeriodo().isBlank()) {
-                throw new RuntimeException("Debe enviar el periodo");
-            }
-            
-            Cliente cliente = clienteRepository.findById(lectura.getCliente().getId())
-            .orElseThrow(() -> new RuntimeException("Cliente no existe"));
 
-        // 1. Validar duplicado en el mismo periodo
-        if (lecturaRepository.existsByClienteIdAndPeriodo(cliente.getId(), lectura.getPeriodo())) {
-            throw new RuntimeException("Ya existe una lectura para el periodo " + lectura.getPeriodo());
+        if (lectura.getCliente() == null || lectura.getCliente().getId() == null) {
+            throw new IllegalArgumentException("Debe enviar el id del cliente");
         }
 
-        // 2. Obtener lectura anterior para calcular consumo
-        BigDecimal lecturaAnterior = lecturaRepository
-        .findTopByCliente_IdOrderByFechaLecturaDesc(cliente.getId())
-        .map(Lectura::getLecturaActual)
-        .orElse(BigDecimal.ZERO);
+        if (lectura.getLecturaActual() == null) {
+            throw new IllegalArgumentException("Debe enviar la lectura actual");
+        }
 
+        if (lectura.getPeriodo() == null || lectura.getPeriodo().isBlank()) {
+            throw new IllegalArgumentException("Debe enviar el periodo");
+        }
 
-        // 3. Validar consistencia (Actual >= Anterior)
-        BigDecimal lecturaActual = lectura.getLecturaActual();
-        lecturaActual = lecturaActual.setScale(3, RoundingMode.HALF_UP);
+        Cliente cliente = obtenerCliente(lectura.getCliente().getId());
+
+        validarDuplicado(lectura, cliente.getId());
+
+        BigDecimal lecturaAnterior = obtenerUltimaLectura(cliente.getId());
+
+        Lectura lecturaFinal = construirLectura(lectura, cliente, lecturaAnterior);
+
+        return lecturaRepository.save(lecturaFinal);
+    }
+
+    // ======================================
+    // OBTENER CLIENTE
+    // ======================================
+    private Cliente obtenerCliente(Long id) {
+        return clienteRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("El suscriptor con ID " + id + " no se encuentra registrado"));
+    }
+
+    // ======================================
+    // VALIDAR DUPLICADO
+    // ======================================
+    private void validarDuplicado(Lectura lectura, Long clienteId) {
+        if (lecturaRepository.existsByClienteIdAndPeriodo(clienteId, lectura.getPeriodo())) {
+            throw new IllegalStateException("Conflicto: Ya existe una lectura registrada para este cliente en el periodo " + lectura.getPeriodo());
+        }
+    }
+
+    // ======================================
+    // ÚLTIMA LECTURA
+    // ======================================
+    private BigDecimal obtenerUltimaLectura(Long clienteId) {
+        return lecturaRepository
+                .findTopByClienteIdOrderByFechaLecturaDesc(clienteId)
+                .map(Lectura::getLecturaActual)
+                .orElse(BigDecimal.ZERO);
+    }
+
+    // ======================================
+    // CONSTRUIR LECTURA FINAL
+    // ======================================
+    private Lectura construirLectura(Lectura lectura, Cliente cliente, BigDecimal lecturaAnterior) {
+
+        BigDecimal lecturaActual = lectura.getLecturaActual()
+                .setScale(3, RoundingMode.HALF_UP);
+
         if (lecturaActual.compareTo(lecturaAnterior) < 0) {
-            throw new RuntimeException("La lectura actual (" + lecturaActual + ") no puede ser menor a la anterior (" + lecturaAnterior + ")");
+            throw new IllegalArgumentException("Error de validación: La lectura actual (" + lecturaActual + ") no puede ser menor a la anterior (" + lecturaAnterior + ")");
         }
 
-        // 4. Calcular consumo
-        BigDecimal consumo = lecturaActual
-        .subtract(lecturaAnterior)
-        .setScale(3, RoundingMode.HALF_UP);
+        BigDecimal consumo = lecturaActual.subtract(lecturaAnterior)
+                .setScale(3, RoundingMode.HALF_UP);
 
-        // 5. Asignar valores calculados
         lectura.setCliente(cliente);
-        lectura.setLecturaActual(lecturaActual);
         lectura.setLecturaAnterior(lecturaAnterior);
+        lectura.setLecturaActual(lecturaActual);
         lectura.setConsumoM3(consumo);
+        lectura.setValor(consumo.multiply(PRECIO_M3));
+
         if (lectura.getFechaLectura() == null) {
             lectura.setFechaLectura(LocalDate.now());
         }
 
-        // 6. Generar observación automática si está vacía
         if (consumo.compareTo(BigDecimal.ZERO) == 0) {
             lectura.setObservacion("Sin consumo");
         } else if (consumo.compareTo(CONSUMO_ALTO) > 0) {
             lectura.setObservacion("Consumo alto");
-        } else if (lectura.getObservacion() == null || lectura.getObservacion().isBlank()) {
+        } else {
             lectura.setObservacion("Consumo normal");
         }
 
-        return lecturaRepository.save(lectura);
+        return lectura;
     }
 
+    // ======================================
+    // BUSCAR POR ID
+    // ======================================
     @Transactional(readOnly = true)
     public Optional<Lectura> buscarPorId(Long id) {
         return lecturaRepository.findById(id);
     }
 
+    // ======================================
+    // LISTAR CON FILTROS
+    // ======================================
     @Transactional(readOnly = true)
     public Page<Lectura> listarConFiltros(Long clienteId, String periodo, Pageable pageable) {
+
         if (clienteId != null && periodo != null && !periodo.isBlank()) {
             return lecturaRepository.findByClienteIdAndPeriodo(clienteId, periodo, pageable);
         }
@@ -115,10 +153,13 @@ public class LecturaService {
         return lecturaRepository.findAll(pageable);
     }
 
+    // ======================================
+    // ELIMINAR
+    // ======================================
     @Transactional
     public void eliminar(Long id) {
         if (!lecturaRepository.existsById(id)) {
-            throw new RuntimeException("Lectura no encontrada");
+            throw new EntityNotFoundException("No se pudo eliminar: La lectura con ID " + id + " no existe");
         }
         lecturaRepository.deleteById(id);
     }

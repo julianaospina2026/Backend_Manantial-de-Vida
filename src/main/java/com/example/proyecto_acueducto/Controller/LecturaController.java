@@ -23,35 +23,42 @@ public class LecturaController {
         this.lecturaService = lecturaService;
     }
 
-    // ✅ CREAR LECTURA
+    // ==========================
+    // CREAR LECTURA
+    // ==========================
     @PostMapping
     public ResponseEntity<Lectura> registrar(@RequestBody Lectura lectura) {
         Lectura nueva = lecturaService.guardar(lectura);
         return ResponseEntity.status(HttpStatus.CREATED).body(nueva);
     }
 
-    // ✅ OBTENER POR ID
+    // ==========================
+    // OBTENER POR ID
+    // ==========================
     @GetMapping("/{id}")
     public ResponseEntity<Lectura> obtenerPorId(@PathVariable Long id) {
         return lecturaService.buscarPorId(id)
-        .map(ResponseEntity::ok)
-        .orElse(ResponseEntity.notFound().build());
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
-    // ✅ LISTAR CON PAGINACIÓN
+
+    // ==========================
+    // LISTAR CON FILTROS
+    // ==========================
     @GetMapping
     public ResponseEntity<Page<Lectura>> listar(
-        @RequestParam(required = false) Long clienteId,
-        @RequestParam(required = false) String periodo,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "10") int size,
-        @RequestParam(defaultValue = "fechaLectura") String sort,
-        @RequestParam(defaultValue = "desc") String dir
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) String periodo,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "fechaLectura") String sort,
+            @RequestParam(defaultValue = "desc") String dir
     ) {
-        
+
         Sort.Direction direction = dir.equalsIgnoreCase("asc")
-        ? Sort.Direction.ASC
-        : Sort.Direction.DESC;
-        
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sort));
 
         Page<Lectura> resultado = lecturaService.listarConFiltros(clienteId, periodo, pageable);
@@ -59,7 +66,9 @@ public class LecturaController {
         return ResponseEntity.ok(resultado);
     }
 
-    // ✅ ELIMINAR
+    // ==========================
+    // ELIMINAR LECTURA
+    // ==========================
     @DeleteMapping("/{id}")
     public ResponseEntity<String> eliminar(@PathVariable Long id) {
         lecturaService.eliminar(id);

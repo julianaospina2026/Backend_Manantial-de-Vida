@@ -47,6 +47,10 @@ public class Lectura {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // 🔹 Valor monetario con valor por defecto en la definición de la columna
+    @Column(name = "valor", nullable = false, precision = 12, scale = 2, columnDefinition = "decimal(12,2) default 0.00")
+    private BigDecimal valor;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -58,6 +62,10 @@ public class Lectura {
         // Calcular consumo automáticamente
         if (lecturaActual != null && lecturaAnterior != null) {
             consumoM3 = lecturaActual.subtract(lecturaAnterior);
+        }
+
+        if (valor == null) {
+            valor = BigDecimal.ZERO;
         }
     }
 
@@ -85,6 +93,9 @@ public class Lectura {
 
     public String getObservacion() { return observacion; }
     public void setObservacion(String observacion) { this.observacion = observacion; }
+
+    public BigDecimal getValor() { return valor; }
+    public void setValor(BigDecimal valor) { this.valor = valor; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
 }
